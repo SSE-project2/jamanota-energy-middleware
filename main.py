@@ -57,7 +57,7 @@ print(response["messages"][-1].content)
 print(f"Current estimated energy usage: {get_total_energy_usage(response['outputs'])}")
 
 # TODO:
-# - Get the metrics not just for the main agent but also for all subagents.
+# - Get the metrics not just for the main agent but also for all subagents. We could just add all datapoints together, but I think it would be better to associate the sub-prompts with the main prompt that called them.
 # - Find more realistic power estimates
 # - A better way to manage the state? Also maybe a nicer API to get metrics from the state/model.
 # - Feed metrics back into the agent. Maybe do this automatically every N steps through middleware or just give it a tool to check itself. Or maybe in the context?
