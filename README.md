@@ -8,5 +8,5 @@ Note this currently needs a beefy GPU. In the future should make an option to us
 - Download ollama: https://ollama.com/download
 - `ollama pull qwen3.5:9b`
 - In a separate terminal: `ollama serve` (might already be running)
-- `ollama ps` to see if model is running, otherwise start with `ollama start qwen3.5`
+- `ollama ps` to see if model is running, otherwise start with `ollama run qwen3.5`
 - `python3 main.py`
