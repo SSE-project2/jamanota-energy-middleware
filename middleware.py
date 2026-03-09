@@ -66,6 +66,22 @@ def log_response(state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
     return None
 
 
+def get_model_costs() -> dict[str, dict[str, float]]:
+    # These numbers are also made up for now
+    return {
+        "qwen3.5:9b": {
+            "input_token_energy": 0.00003,
+            "output_token_energy": 0.00012
+        },
+        "qwen3.5:4b": {
+            "input_token_energy": 0.000015,
+            "output_token_energy": 0.00006
+        },
+        "qwen3.5:2b": {
+            "input_token_energy": 0.000007,
+            "output_token_energy": 0.000028
+        }
+    }
 
 
 def estimate_energy_and_emissions(input_tokens: int, output_tokens: int, model: str) -> tuple[float, float]:
@@ -74,12 +90,10 @@ def estimate_energy_and_emissions(input_tokens: int, output_tokens: int, model: 
     co2e_per_joule = 0.0000005
 
     # In format: (energy per input token, energy per output token)
-    module_costs = {
-        "qwen3.5": (0.00001, 0.00004)
-    }
+    model_costs = get_model_costs()[model]
     
-    input_energy = input_tokens * module_costs.get(model, (0, 0))[0]
-    output_energy = output_tokens * module_costs.get(model, (0, 0))[1]
+    input_energy = input_tokens * model_costs["input_token_energy"]
+    output_energy = output_tokens * model_costs["output_token_energy"]
     total_energy = input_energy + output_energy
     co2e = total_energy * co2e_per_joule
 
