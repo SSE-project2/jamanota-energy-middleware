@@ -58,9 +58,3 @@ print(response["messages"][-1].content)
 
 print(f"Current estimated energy usage: {tracker.get_report()}")
 
-# TODO:
-# - Right now all data points are added together, but I think it would be better to associate the sub-prompts with the main prompt that called them.
-# - Find more realistic power estimates
-# - A better way to manage the state? Also maybe a nicer API to get metrics from the state/model.
-# - Feed metrics back into the agent. Maybe do this automatically every N steps through middleware or just give it a tool to check itself. Or maybe in the context?
-# - The state object - here 'response' - actually already keeps track of all messages. We could therefore calculate metrics on demand, but I think the current pre-calculated method is also fine.
