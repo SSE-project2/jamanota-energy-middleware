@@ -1,7 +1,7 @@
 from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain_ollama import ChatOllama
-from middleware import CustomState, EnergyMiddleware
+from middleware import EnergyMiddleware
 from reporting import get_total_energy_usage
 
 # Basic multiagent setup for testing

@@ -12,10 +12,9 @@ Note this currently needs a beefy GPU. In the future should make an option to us
 - `python3 main.py`
 
 ## TODO
-- Right now all data points are added together, but I think it would be better to associate the sub-prompts with the main prompt that called them.
-- Find more realistic power estimates
-- Maybe a nicer API to get metrics from the state/model.
-- Feed metrics back into the agent. Maybe do this automatically every N steps through middleware or just give it a tool to check itself. Or maybe in the context?
-- Make a way to interactively demo the agent, either cli or simple web interface. Maybe look at what previous year's project did.
-- More complicated example agent, so it actually has a meaningful choice between sub-agents
+- Right now all data points are added together, but I think it would be better to associate the sub-prompts with the main prompt that called them. - Aadesh
+- Find more realistic power estimates. Maybe a nicer API to get metrics from the state/model. - Ruy
+- Feed metrics back into the agent. Maybe do this automatically every N steps through middleware or just give it a tool to check itself. Or maybe in the context? - Samuel
+- Make a way to interactively demo the agent, either cli or simple web interface. Maybe look at what previous year's project did. - Jan
+- More complicated example agent, so it actually has a meaningful choice between sub-agents - Andrea
 - At the end: create pip package. 
