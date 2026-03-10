@@ -37,7 +37,6 @@ class EnergyMiddleware(AgentMiddleware):
             return None
         
         energy, co2e = estimate_energy_and_emissions(input_token_count, output_token_count, model_name)
-
         output_datapoint = Datapoint(
             input_token_count=input_token_count,
             output_token_count=output_token_count,

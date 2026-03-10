@@ -1,21 +1,132 @@
 from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain_ollama import ChatOllama
-from middleware import EnergyMiddleware, get_model_costs
-from reporting import get_total_energy_usage, PAST_24H_ENERGY_J, ENERGY_BUDGET_J
+from middleware import EnergyMiddleware
+from reporting import get_total_energy_usage
+import random
+from datetime import datetime, timedelta
 
 # Basic multiagent setup for testing
 # https://dev.to/fabiothiroki/run-langchain-locally-in-15-minutes-without-a-single-api-key-1j8m
 # https://docs.langchain.com/oss/python/langchain/multi-agent/subagents
 
-@tool("get_weather", description="Get the weather for a city")
-def get_weather(city: str) -> str:
-    """Get weather for a given city."""
-    return f"The weather in {city} is rainy and 21.7 degrees celcius"
+@tool("get_weather_report", description="Retrieve detailed hourly weather report for a city")
+def get_weather(city: str) -> dict:
+    days = []
+    stations = ["AMS1", "AMS2", "AMS3"]
+    models = ["ECMWF", "GFS", "HIRLAM"]
+    
+    start_date = datetime.today()
+    total_days = 7
 
-SUBAGENT_SYSTEM_PROMPT = """You are a helpful assistant. You are an expert at researching the weather. Respond in a whimsical tone.
-You have the following tools:
-- get_weather: this tool takes a city as input and returns the weather in that city.
+    for day_index in range(total_days):
+        day_date = start_date + timedelta(days=day_index)
+        hours = []
+
+        for h in range(0, 24):
+            # Base values for this hour
+            base_temp = 17 + random.uniform(-4, 7)
+            base_rain_prob = random.uniform(0, 1)
+            base_wind = random.uniform(5, 35)
+
+            for station in stations:
+                for model in models:
+                    hours.append({
+                        "hour": f"{h:02d}:00",
+                        "station_id": station,
+                        "forecast_model": model,
+                        "temperature_c": round(base_temp + random.uniform(-1.0, 1.0), 1),
+                        "feels_like_c": round(base_temp + random.uniform(-2.0, 2.0), 1),
+                        "rain_probability": round(
+                            min(max(base_rain_prob + random.uniform(-0.1, 0.1), 0), 1), 2
+                        ),
+                        "rain_mm": round(random.uniform(0, 8) * base_rain_prob, 1),
+                        "wind_kmh": round(base_wind + random.uniform(-3, 3), 1),
+                        "wind_gust_kmh": round(base_wind + random.uniform(5, 15), 1),
+                        "humidity": random.randint(55, 98),
+                        "visibility_km": round(random.uniform(2, 10), 1),
+                        "cloud_cover_percent": random.randint(5, 100),
+                        "conditions": random.choice([
+                            "clear",
+                            "cloudy",
+                            "light rain",
+                            "showers",
+                            "overcast",
+                            "mist"
+                        ]),
+                        "confidence": round(random.uniform(0.7, 0.98), 2)
+                    })
+
+        days.append({
+            "date": day_date.strftime("%Y-%m-%d"),
+            "hours": hours
+        })
+
+    return {
+        "city": city,
+        "metadata": {
+            "generated_by": "SyntheticWeatherSim v3.0",
+            "forecast_models_used": models,
+            "data_points": sum(len(day['hours']) for day in days),
+            "generation_time": "simulated"
+        },
+        "units": {
+            "temperature": "C",
+            "rain": "mm",
+            "wind": "km/h",
+            "visibility": "km"
+        },
+        "daily_summary": {
+            "sunrise": "06:48",
+            "sunset": "18:31",
+            "uv_index": random.randint(1, 5),
+            "pressure_hpa": random.randint(1005, 1025)
+        },
+        "forecast_days": days
+    }
+
+SUBAGENT_SYSTEM_PROMPT = """
+You are a meteorological analysis assistant.
+
+You receive detailed structured weather reports produced by multiple weather
+stations and forecast models. For each hour there may be multiple observations
+from different stations and models.
+
+Each observation may contain:
+- temperature and feels_like temperature
+- rain probability and expected rainfall
+- wind speed and wind gusts
+- humidity and visibility
+- cloud cover and general conditions
+- the station ID and forecast model that produced the observation
+- a confidence score
+
+The data may contain minor variations between stations and models. Your task
+is to interpret the overall weather situation rather than focusing on a single
+data point.
+
+When answering a user question:
+
+1. Identify the relevant time range mentioned in the question
+   (for example: morning, afternoon, evening, tonight, or a specific hour).
+
+2. For each relevant hour, consider multiple observations from different
+   stations and forecast models and determine the overall trend or consensus.
+
+3. Pay particular attention to:
+   - rain probability and rainfall amount
+   - wind speed and gusts
+   - visibility
+   - temperature and feels-like temperature
+   - any weather alerts
+
+4. Ignore irrelevant metadata such as station IDs unless it helps explain
+   uncertainty in the forecast.
+
+5. Summarize the weather clearly and concisely in natural language.
+
+Focus on giving a useful interpretation of the data rather than repeating
+the raw values.
 """
 
 tracker = EnergyMiddleware()
@@ -35,29 +146,10 @@ MODEL_TIERS = {
 }
 
 weather_agents = {
-    tier: create_weather_subagent(model)
-    for tier, model in MODEL_TIERS.items()
+    "large": create_weather_subagent(MODEL_TIERS["large"]),
+    "medium": create_weather_subagent(MODEL_TIERS["medium"]),
+    "small": create_weather_subagent(MODEL_TIERS["small"]),
 }
-
-
-@tool("get_model_energy_costs", description="Returns energy consumption per input and output token for available models")
-def get_model_energy_costs() -> str:
-    costs = get_model_costs()
-    lines = []
-
-    for tool_name, model_name in MODEL_TIERS.items():
-        model_cost = costs.get(model_name)
-        lines.append(
-            f"- {tool_name} ({model_name}): "
-            f"{model_cost['input_token_energy']} J per input token, "
-            f"{model_cost['output_token_energy']} J per output token."
-        )
-
-    return "\n".join(lines)
-
-@tool("get_energy_usage_last_24h", description="Returns total energy consumption in joules in the past 24 hours")
-def get_energy_usage_last_24h() -> str:
-    return f"Energy used in the past 24 hours: {PAST_24H_ENERGY_J} joules. Budget: {ENERGY_BUDGET_J} joules."
 
 def make_weather_tool(tier, agent):
     @tool(f"weather_{tier}", description=f"Use the {tier} accuracy weather research model")
@@ -75,41 +167,58 @@ weather_tools = [
 ]
 
 
-MAIN_SYSTEM_PROMPT = """
+MAIN_SYSTEM_PROMPT = f"""
 You are an assistant that answers user questions while managing energy consumption.
 
-Available models:
-- weather_large
-- weather_medium
-- weather_small
+You do NOT directly analyze weather data yourself. Instead, you must decide
+which specialized weather analysis agent to call.
 
-You can use the following tools:
-
-get_energy_usage_last_24h
-    Returns the energy used in the past 24 hours and the allowed energy budget.
-
-get_model_energy_costs
-    Returns the energy cost per input and output token for each model.
+Available weather analysis agents:
+- weather_small  : lowest energy cost, suitable for simple questions
+- weather_medium : moderate energy cost, suitable for moderately complex analysis
+- weather_large  : highest energy cost, suitable for complex reasoning over large weather reports
 
 Decision strategy:
 
-1. First check the energy usage in the past 24 hours.
-2. Inspect the model energy costs.
-3. Estimate how many tokens the response may require.
-4. Choose the model that balances accuracy and the energy budget.
+1. Analyze the user's question and estimate its complexity. Consider aspects such as:
+   - Does the question ask for a simple summary of the weather?
+   - Does it require analyzing multiple hours of forecast data?
+   - Does it require comparing wind, rain, and temperature to make a recommendation?
+   - Does it require identifying trends or optimal times during the day?
 
-You CANNOT exceed the energy budget. Always choose a model that keeps you within the budget, even if it means giving a less accurate answer.
+2. Estimate how much reasoning and analysis will be required.
+
+3. Select the cheapest weather agent that can reliably answer the question given its estimated complexity.
+
+General complexity guidelines:
+
+Low complexity:
+- Simple weather summaries
+- Questions about current temperature or conditions
+→ Use weather_small
+
+Medium complexity:
+- Questions about weather conditions during a small time range
+- Requires scanning several hours of forecast
+→ Use weather_medium
+
+High complexity:
+- Recommendation questions
+- Requires comparing multiple weather variables across multiple hours
+→ Use weather_large
+
+Today is {datetime.today()}. Always try to minimize energy usage while still providing a useful answer.
 """
 
 main_agent = create_agent(
     model=ChatOllama(model="qwen3.5:9b"),
-    tools=[get_energy_usage_last_24h, get_model_energy_costs] + weather_tools,
+    tools=weather_tools,
     system_prompt=MAIN_SYSTEM_PROMPT,
     middleware=[tracker],
 )
 
 response = main_agent.invoke(
-    {"messages": [{"role": "user", "content": "What is the weather in Amsterdam?"}]}
+    {"messages": [{"role": "user", "content": "What's the weather like today between 2 PM and 4 PM?"}]}
 )
 
 
