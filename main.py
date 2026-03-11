@@ -1,5 +1,4 @@
 import uuid
-from collections import defaultdict
 
 from langchain.tools import tool
 from langchain.agents import create_agent
@@ -7,7 +6,7 @@ from langchain_ollama import ChatOllama
 
 from context_var import prompt_id_var
 from middleware import EnergyMiddleware, CustomState
-from reporting import get_total_energy_usage, get_total_co2
+from reporting import present_results
 
 
 # Basic multiagent setup for testing
@@ -35,9 +34,8 @@ subagent = create_agent(
 )
 
 @tool("weather", description="Research the weather and return findings")
-def call_weather_agent(query: str, prompt_id: str) -> str:
-    print(f'prompt_id: {prompt_id}')
-    result = subagent.invoke({"messages": [{"role": "user", "content": query}], 'prompt_id': prompt_id})
+def call_weather_agent(query: str) -> str:
+    result = subagent.invoke({"messages": [{"role": "user", "content": query}], 'prompt_id': prompt_id_var.get()})
     return result["messages"][-1].content
 
 MAIN_SYSTEM_PROMPT = """
@@ -55,32 +53,15 @@ main_agent = create_agent(
     state_schema=CustomState
 )
 
-# prompt_id_var.set(str(uuid.uuid4()))
-
-uuid_val = uuid.uuid4()
-print(uuid_val)
-str_uuid = str(uuid_val)
-print(str_uuid)
+prompt_id = str(uuid.uuid4())
+prompt_id_var.set(prompt_id)
 
 response = main_agent.invoke(
     {"messages": [{"role": "user", "content": "what is the weather in Amsterdam?"}],
-     'prompt_id': str_uuid}
+     'prompt_id': prompt_id}
 )
 
-print(response["messages"][-1].content)
+# print(response["messages"][-1].content)
 
-report = tracker.get_report()
-
-print(report)
-
-grouped = defaultdict(list)
-for dp in report:
-    grouped[dp.prompt_id].append(dp)
-
-for prompt_id, points in grouped.items():
-    print(f"\nPrompt [{prompt_id}]: {len(points)} calls")
-    for dp in points:
-        total_energy = dp.estimated_energy_joule
-        total_co2e = dp.estimated_co2e_gram
-        print(f"  [{dp.model_name}] {dp.message}  {total_energy} J | {total_co2e} gCO2e") # If we have multiple models for the subprompts that will change here
+present_results(tracker.get_report())
 

@@ -7,8 +7,6 @@ from typing import Annotated
 from operator import add
 import threading
 
-from context_var import prompt_id_var
-
 
 class Datapoint(BaseModel):
     input_token_count: int
@@ -42,7 +40,6 @@ class EnergyMiddleware(AgentMiddleware):
         
         energy, co2e = estimate_energy_and_emissions(input_token_count, output_token_count, model_name)
 
-        print(f'state: {state}')
         prompt_id = state.get("prompt_id", "unknown")
 
         output_datapoint = Datapoint(
