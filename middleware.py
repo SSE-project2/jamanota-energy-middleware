@@ -7,6 +7,9 @@ from typing import Annotated
 from operator import add
 import threading
 
+from context_var import prompt_id_var
+
+
 class Datapoint(BaseModel):
     input_token_count: int
     output_token_count: int
@@ -15,9 +18,10 @@ class Datapoint(BaseModel):
     model_name: str
     timestamp: datetime.datetime
     message: str
+    prompt_id: str
 
-# class CustomState(AgentState):
-#     outputs: Annotated[list[Datapoint], add] = []
+class CustomState(AgentState):
+    prompt_id: str
 
 class EnergyMiddleware(AgentMiddleware):
     def __init__(self):
@@ -38,6 +42,9 @@ class EnergyMiddleware(AgentMiddleware):
         
         energy, co2e = estimate_energy_and_emissions(input_token_count, output_token_count, model_name)
 
+        print(f'state: {state}')
+        prompt_id = state.get("prompt_id", "unknown")
+
         output_datapoint = Datapoint(
             input_token_count=input_token_count,
             output_token_count=output_token_count,
@@ -45,7 +52,8 @@ class EnergyMiddleware(AgentMiddleware):
             estimated_co2e_gram=co2e,
             model_name=model_name,
             timestamp=datetime.datetime.now(),
-            message=str(last_message.content)[:100]
+            message=str(last_message.content)[:100],
+            prompt_id=prompt_id,
         )
         with self._lock:
             self.datapoints.append(output_datapoint)
