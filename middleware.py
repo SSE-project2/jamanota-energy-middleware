@@ -54,6 +54,25 @@ class EnergyMiddleware(AgentMiddleware):
         with self._lock:
             return self.datapoints.copy()
 
+    def total_energy(self) -> float:
+        """ Returns the sum of energy in the list of data points. """
+        with self._lock:
+            return sum(dp.estimated_energy_joule for dp in self.datapoints)
+
+    def total_co2(self) -> float:
+        """ Returns the sum of carbon dioxide emissions in the list of data points. """
+        with self._lock:
+            return sum(dp.estimated_co2e_gram for dp in self.datapoints)
+
+    def breakdown_by_model(self) -> dict[str, float]:
+        """ Returns a breakdown of energy consumption grouped by model. """
+        result = {}
+        with self._lock:
+            for dp in self.datapoints:
+                result.setdefault(dp.model_name, 0)
+                result[dp.model_name] += dp.estimated_energy_joule
+        return result
+
 
 
 @after_model
@@ -69,19 +88,41 @@ def log_response(state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
 
 
 def estimate_energy_and_emissions(input_tokens: int, output_tokens: int, model: str) -> tuple[float, float]:
-    # These numbers are totally made up for now
+    # Carbon Intensity
+    # Global average carbon intensity: 0.45 kg CO2 / kWh
+    # Conversion: 1 kWh = 3,600,000 Joules
+    # 0.45 / 3,600,000 ≈ 1.25e-7 kg CO2 per Joule
+    co2e_per_joule = 1.25e-7  # kg CO2 per Joule
 
-    co2e_per_joule = 0.0000005
+    # Hardware Efficiency Assumption (Consumer GPU Baseline) NVIDIA RTX 4070 specifications obtained online
+    # FP16 (half precision) throughput: 29.15 TFLOPs
+    # TDP (Thermal Design Power): 200 W
+    #
+    # FLOPs per Joule = FLOPs per second / Watts = (29.15e12 FLOPs/s) / 200 W
+    # ≈ 1.46e11 FLOPs per Joule (theoretical peak)
+    FLOPS_PER_JOULE = 1.46e11  # RTX 4070 FP16 peak efficiency
 
-    # In format: (energy per input token, energy per output token)
-    module_costs = {
-        "qwen3.5": (0.00001, 0.00004)
+    # Transformer Inference Compute Approximation used in transformer literature:
+    # FLOPs per token ≈ 2 × number_of_parameters (Forward pass only; training typically ≈ 6P)
+    # Assumes dense models
+    # More models could be added later, the number of parameters is usually in the name.
+    MODEL_PARAMETERS = {
+        "qwen3.5": 9_000_000_000,
     }
-    
-    input_energy = input_tokens * module_costs.get(model, (0, 0))[0]
-    output_energy = output_tokens * module_costs.get(model, (0, 0))[1]
-    total_energy = input_energy + output_energy
-    co2e = total_energy * co2e_per_joule
+
+    # I have sources for the numbers above
+
+    params = MODEL_PARAMETERS.get(model, 0)
+    total_tokens = input_tokens + output_tokens
+
+    # Total FLOPs for inference
+    total_flops = 2 * params * total_tokens
+
+    # Convert compute to energy
+    total_energy = total_flops / FLOPS_PER_JOULE  # Joules
+
+    # Convert energy to CO2
+    co2e = total_energy * co2e_per_joule  # kg CO2
 
     return total_energy, co2e
 
