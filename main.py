@@ -5,7 +5,6 @@ from langchain_ollama import ChatOllama
 from middleware import EnergyMiddleware
 from reporting import present_results
 
-
 # Basic multiagent setup for testing
 # https://dev.to/fabiothiroki/run-langchain-locally-in-15-minutes-without-a-single-api-key-1j8m
 # https://docs.langchain.com/oss/python/langchain/multi-agent/subagents
@@ -50,6 +49,10 @@ main_agent = create_agent(
 
 response = main_agent.invoke(
     {"messages": [{"role": "user", "content": "what is the weather in Amsterdam?"}]}
+)
+
+response = main_agent.invoke(
+    {"messages": [{"role": "user", "content": "what is the weather in London?"}]}
 )
 
 present_results(tracker.get_report())

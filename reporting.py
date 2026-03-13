@@ -16,3 +16,4 @@ def present_results(report: list[Datapoint]) -> None:
             print(f'  Input: {dp.input_token_count} tokens')
             print(f'  Output: {dp.output_token_count} tokens')
             print(f'  Timestamp: {dp.timestamp}\n')
+            print(f'  Prompt ID: {dp.prompt_id}\n')
