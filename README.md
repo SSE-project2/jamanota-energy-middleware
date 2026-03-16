@@ -9,7 +9,8 @@ Note this currently needs a beefy GPU. In the future should make an option to us
 - `ollama pull qwen3.5:9b`
 - In a separate terminal: `ollama serve` (might already be running)
 - `ollama ps` to see if model is running, otherwise start with `ollama run qwen3.5`
-- `python3 main.py`
+- `python3 main.py` to run a hardcoded test query
+- `streamlit run app.py` to open the interactive chat UI in your browser
 
 ## TODO
 - Right now all data points are added together, but I think it would be better to associate the sub-prompts with the main prompt that called them. - Aadesh
