@@ -6,6 +6,7 @@ from middleware import EnergyMiddleware
 import io
 import contextlib
 import traceback
+from sympy import sympify
 
 tracker = EnergyMiddleware()
 
@@ -15,7 +16,11 @@ tracker = EnergyMiddleware()
 
 @tool("calculate", description="Evaluate a mathematical expression")
 def calculate(expression: str) -> str:
-    return str(eval(expression))
+    try:
+        result = sympify(expression)
+        return str(result)
+    except Exception as e:
+        return f"Invalid mathematical expression: {expression}\nError: {str(e)}"
 
 MATH_SYSTEM_PROMPT = """
 You are a mathematics expert.
@@ -117,7 +122,7 @@ Available specialized agents:
 
 math_agent
 - expert in mathematics and numerical reasoning
-- has access to a calculator tool for evaluating expressions
+- has access to a calculator tool for evaluating numerical expressions
 
 coding_agent
 - expert in programming and software engineering
