@@ -4,15 +4,14 @@ from langchain_ollama import ChatOllama
 
 from middleware import EnergyMiddleware
 from reporting import present_results
+from sympy import sympify
+import io
+import contextlib
+import traceback
 
 # Basic multiagent setup for testing
 # https://dev.to/fabiothiroki/run-langchain-locally-in-15-minutes-without-a-single-api-key-1j8m
 # https://docs.langchain.com/oss/python/langchain/multi-agent/subagents
-from sympy import sympify
-
-import io
-import contextlib
-import traceback
 
 tracker = EnergyMiddleware()
 
@@ -145,7 +144,7 @@ main_agent = create_agent(
 )
 
 # -----------------------------
-# TEST QUERY
+# TEST QUERIES
 # -----------------------------
 
 response = main_agent.invoke({
@@ -158,6 +157,14 @@ response = main_agent.invoke({
             return mystery(n-1) + mystery(n-2)
 
         print(mystery(10))"""}
+    ]
+})
+
+response = main_agent.invoke({
+    "messages": [
+        {"role": "user", "content": """What is the solution for the following mathematical problem? 
+         Calculate the exact result of: (452 * 18.5) / 3.2 + 5**3
+         """}
     ]
 })
 
