@@ -11,7 +11,7 @@ class Datapoint(BaseModel):
     input_token_count: int
     output_token_count: int
     estimated_energy_joule: float
-    estimated_co2e_gram: float
+    estimated_co2e_kg: float
     model_name: str
     timestamp: datetime.datetime
     message: str
@@ -42,7 +42,7 @@ class EnergyMiddleware(AgentMiddleware):
             input_token_count=input_token_count,
             output_token_count=output_token_count,
             estimated_energy_joule=energy,
-            estimated_co2e_gram=co2e,
+            estimated_co2e_kg=co2e,
             model_name=model_name,
             timestamp=datetime.datetime.now(),
             message=str(last_message.content)[:100]
@@ -62,7 +62,7 @@ class EnergyMiddleware(AgentMiddleware):
     def total_co2(self) -> float:
         """ Returns the sum of carbon dioxide emissions in the list of data points. """
         with self._lock:
-            return sum(dp.estimated_co2e_gram for dp in self.datapoints)
+            return sum(dp.estimated_co2e_kg for dp in self.datapoints)
 
     def breakdown_by_model(self) -> dict[str, float]:
         """ Returns a breakdown of energy consumption grouped by model. """
