@@ -1,4 +1,1 @@
 langchain
-langchain-ollama
-sympy
-streamlit

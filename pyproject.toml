@@ -6,6 +6,13 @@ build-backend = "setuptools.build_meta"
 name = "energy-middleware"
 version = "0.1.0"
 description = "Energy and CO2 tracking middleware for LLM agents"
+readme = "README.rst"
+authors = [{name = "Samuel van den Houten, Jan Kuhta, Andrea Vezzuto, Aadesh Ramai, Rodrigo Montero González"}]
+requires-python = ">=3.9"
+
+dependencies = [
+    "langchain>=0.1.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
