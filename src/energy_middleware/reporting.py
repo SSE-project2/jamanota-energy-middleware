@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from .middleware import Datapoint
+from energy_middleware.middleware import Datapoint
 
 def present_results(report: list[Datapoint]) -> None:
     """

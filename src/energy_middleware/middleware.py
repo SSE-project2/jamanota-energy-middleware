@@ -1,7 +1,7 @@
 import datetime
 import threading
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from langchain.agents.middleware import AgentState, AgentMiddleware
 from langgraph.runtime import Runtime
@@ -35,6 +35,24 @@ class Datapoint(BaseModel):
     agent_name: str
 
 
+class GroupSummary(BaseModel):
+    """
+    Aggregated summary of energy and token usage for a group of datapoints.
+    
+    Attributes:
+        name (str): Name of the group.
+        total_energy_joule (float): Total estimated energy usage in Joules
+        total_co2e_kg (float): Total estimated CO2 emissions in kilograms.
+        total_input_tokens (int): Total number of input tokens.
+        total_output_tokens (int): Total number of output tokens.
+    """
+    name: str
+    total_energy_joule: float
+    total_co2e_kg: float
+    total_input_tokens: int
+    total_output_tokens: int
+    datapoint_count: int
+
 class EnergyMiddleware(AgentMiddleware):
     """
     Middleware that tracks token usage, estimates energy consumption,
@@ -49,6 +67,7 @@ class EnergyMiddleware(AgentMiddleware):
         self.datapoints: list[Datapoint] = []
         self._lock = threading.Lock()
         self._prompt_id_stack: list[str] = [] # Could also be replaced by a field and a counter.
+        self._prompt_order: list[str] = []
 
     @property
     def _current_prompt_id(self) -> str | None:
@@ -60,6 +79,59 @@ class EnergyMiddleware(AgentMiddleware):
         """
         with self._lock:
             return self._prompt_id_stack[-1] if self._prompt_id_stack else None
+
+    def _filter_datapoints(self, last_n_prompts, last_n_hours):
+        """
+        Filter datapoints based on recent prompts or time.
+        
+        Args:
+            last_n_prompts (int | None): If set, only include datapoints from the last N top-level prompts.
+            last_n_hours (float | None): If set, only include datapoints from the last N hours.
+
+        Returns:
+            list[Datapoint]: A filtered list of datapoints based on the provided criteria.
+        """
+        with self._lock:
+            points = self.datapoints.copy()
+            recent_ids = set(self._prompt_order[-last_n_prompts:]) if last_n_prompts is not None else None
+
+        if recent_ids is not None:
+            points = [dp for dp in points if dp.prompt_id in recent_ids]
+        if last_n_hours is not None:
+            cutoff = datetime.datetime.now() - datetime.timedelta(hours=last_n_hours)
+            points = [dp for dp in points if dp.timestamp >= cutoff]
+        return points
+
+    def _group_datapoints(self, points: list[Datapoint], key: str) -> list[GroupSummary]:
+        """
+        Group datapoints by a specified key (model_name or agent_name) and aggregates energy/token usage.
+        
+        Args:
+            points (list[Datapoint]): List of datapoints to group.
+            key (str): Attribute to group by ("model_name" or "agent_name").
+
+        Returns:
+            list[GroupSummary]: A list of aggregated summaries for each group.
+        """
+        buckets: dict[str, GroupSummary] = {}
+        for dp in points:
+            name = getattr(dp, key)
+            if name not in buckets:
+                buckets[name] = GroupSummary(
+                    name=name,
+                    total_energy_joule=0.0,
+                    total_co2e_kg=0.0,
+                    total_input_tokens=0,
+                    total_output_tokens=0,
+                    datapoint_count=0
+                )
+            buckets[name].total_energy_joule += dp.estimated_energy_joule
+            buckets[name].total_co2e_kg += dp.estimated_co2e_kg
+            buckets[name].total_input_tokens += dp.input_token_count
+            buckets[name].total_output_tokens += dp.output_token_count
+            buckets[name].datapoint_count += 1
+
+        return list(buckets.values())
 
     def before_agent(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
         """
@@ -85,6 +157,7 @@ class EnergyMiddleware(AgentMiddleware):
         new_id = str(uuid.uuid4())
         with self._lock:
             self._prompt_id_stack.append(new_id)
+            self._prompt_order.append(new_id)
         return None
 
     def after_agent(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
@@ -150,6 +223,8 @@ class EnergyMiddleware(AgentMiddleware):
 
         return None
 
+    # ── Raw ────────────────────────────────────────────────────────────
+
     def get_report(self) -> list[Datapoint]:
         """
         Retrieve a copy of all collected datapoints.
@@ -159,42 +234,97 @@ class EnergyMiddleware(AgentMiddleware):
         """
         with self._lock:
             return self.datapoints.copy()
-
-    def total_energy(self) -> float:
+        
+    def get_prompt_count(self) -> int:
         """
-        Calculate total energy consumption across all datapoints.
-
+        Number of top-level prompts seen so far.
+        
         Returns:
-            float: Total energy in Joules.
+            int: Count of unique top-level prompts.
         """
         with self._lock:
-            return sum(dp.estimated_energy_joule for dp in self.datapoints)
+            return len(self._prompt_order)
 
-    def total_co2(self) -> float:
+    # ── Totals ────────────────────────────────────────────────────
+
+    def get_totals(self) -> dict[str, float | int]:
         """
-        Calculate total CO2 emissions across all datapoints.
-
+        Returns all total accumulated over the collected datapoints.
+        
         Returns:
-            float: Total CO2 emissions in kilograms.
+            dict[str, float | int]: A dictionary containing total energy (J), total CO2 (kg), total input tokens, and total output tokens.
         """
-        with self._lock:
-            return sum(dp.estimated_co2e_kg for dp in self.datapoints)
-
-    def breakdown_by_model(self) -> dict[str, float]:
-        """
-        Compute energy usage grouped by model name.
-
-        Returns:
-            dict[str, float]: Mapping of model names to total energy usage in Joules.
-        """
-        result = {}
+        total_energy = 0.0
+        total_co2 = 0.0
+        total_input_tokens = 0
+        total_output_tokens = 0
         with self._lock:
             for dp in self.datapoints:
-                result.setdefault(dp.model_name, 0)
-                result[dp.model_name] += dp.estimated_energy_joule
-        return result
+                total_energy += dp.estimated_energy_joule
+                total_co2 += dp.estimated_co2e_kg
+                total_input_tokens += dp.input_token_count
+                total_output_tokens += dp.output_token_count
+        return {
+            "energy": total_energy,
+            "co2": total_co2,
+            "input_tokens": total_input_tokens,
+            "output_tokens": total_output_tokens,
+        }
+    
+    def get_total_energy(self) -> float:
+        """
+        Get the total estimated energy consumption of all collected datapoints in Joules.
 
+        Returns:
+            float: Total estimated energy in Joules.
+        """
+        return self.get_totals()["energy"]
 
+    def get_total_co2(self) -> float:
+        """
+        Get the total estimated CO2 emissions of all collected datapoints in kilograms.
+
+        Returns:
+            float: Total estimated CO2 emissions in kilograms.
+        """
+        return self.get_totals()["co2"]
+
+    def get_total_input_tokens(self) -> int:
+        """
+        Get the total number of input tokens across all collected datapoints.
+
+        Returns:
+            int: Total number of input tokens.
+        """
+        return self.get_totals()["input_tokens"]
+
+    def get_total_output_tokens(self) -> int:
+        """
+        Get the total number of output tokens across all collected datapoints.
+
+        Returns:
+            int: Total number of output tokens.
+        """
+        return self.get_totals()["output_tokens"]
+
+    # ── Grouped / filtered  Summary ───────────────────────────────────────────────────────
+
+    def get_summary(
+        self,
+        group_by: Literal["model_name", "agent_name"],
+        last_n_prompts: int | None = None,
+        last_n_hours: float | None = None,
+        ) -> list[GroupSummary]:
+        """
+        Returns aggregated energy/token summaries grouped by model or agent.
+
+        Args:
+            group_by: "model_name" or "agent_name"
+            last_n_prompts: if set, only include data from the last N top-level prompts
+            last_n_hours: if set, only include data from the last N hours
+        """
+        points = self._filter_datapoints(last_n_prompts, last_n_hours)
+        return self._group_datapoints(points, group_by)
 
 def estimate_energy_and_emissions(input_tokens: int, output_tokens: int, model: str) -> tuple[float, float]:
     """
