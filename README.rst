@@ -1,4 +1,3 @@
-================
 EnergyMiddleware
 ================
 
@@ -13,8 +12,8 @@ Overview
 --------
 
 Modern AI systems, especially multi-agent LLM workflows, can involve
-complex chains of model calls. Understanding their *computational cost*
-and *environmental impact* is increasingly important.
+complex chains of model calls. Understanding their computational cost
+and environmental impact is increasingly important.
 
 EnergyMiddleware provides:
 
@@ -76,11 +75,7 @@ Start tracking energy usage in your agent system in just a few lines:
 
 The energy middleware tracker will be called after all model calls, including nested ones, and will log token usage, energy, and CO₂ for each call.
 
-
-Example Output
---------------
-
-Each model call produces a :class:`middleware.Datapoint` containing:
+Thereafter, each model call produces a :class:`middleware.Datapoint` containing:
 
 - Token usage (input/output)
 - Estimated energy consumption
@@ -92,11 +87,11 @@ Each model call produces a :class:`middleware.Datapoint` containing:
 Use Cases
 ---------
 
-EnergyMiddleware is useful for:
+EnergyMiddleware may be useful for:
 
-- 🔬 Research on *efficient AI systems*
-- 🌱 Measuring *environmental impact of LLMs*
-- 🤖 Adaptive *multi-agent systems* based on real-time energy usage 
+- 🔬 Research on efficient AI systems
+- 🌱 Measuring environmental impact of LLMs
+- 🤖 Adaptive multi-agent systems based on real-time energy usage 
 - 🧪 Profiling experimental pipelines
 
 
@@ -112,7 +107,7 @@ Contributions are welcome! You can help by:
 
 **Development Setup**:
 
-Install the package in editable mode:
+From the root directory, install the package in editable mode:
 
 .. code-block:: bash
 
@@ -155,27 +150,16 @@ Or, launch the dashboard:
 
 **Building the Documentation**:
 
-Install documentation dependencies:
+First, install documentation dependencies:
 
 .. code-block:: bash
 
     pip install sphinx sphinx-rtd-theme
 
-Build the docs:
+Then, build the docs from the root directory:
 
 .. code-block:: bash
 
     make html
 
-Output:
-
-::
-
-    docs/build/html/index.html
-
-Open this file in your browser to view the docs.
-
-
-.. note::
-
-    All commands assume you are run from the project root.
+The built documentation will be available in the ``docs/build/html`` directory. You can open the ``index.html`` file in your browser to view it.
