@@ -1,10 +1,11 @@
+================
 EnergyMiddleware
 ================
 
 **EnergyMiddleware** is a lightweight Python middleware for tracking
 energy consumption and CO₂ emissions of LLM-based agent systems.
 
-It integrates with agent frameworks to records token usage,
+It integrates with agent frameworks to record token usage,
 estimated energy consumption, and environmental impact for every model call.
 
 
@@ -12,8 +13,8 @@ Overview
 --------
 
 Modern AI systems, especially multi-agent LLM workflows, can involve
-complex chains of model calls. Understanding their **computational cost**
-and **environmental impact** is increasingly important.
+complex chains of model calls. Understanding their *computational cost*
+and *environmental impact* is increasingly important.
 
 EnergyMiddleware provides:
 
@@ -25,10 +26,10 @@ EnergyMiddleware provides:
 Key Features
 ------------
 
-- **Plug-and-play middleware** for agent systems
-- Tracks **input/output tokens**, energy (J), and CO₂ (kg)
-- Supports **nested agent calls** via prompt tracking
-- Works with **multi-agent architectures**
+- Plug-and-play middleware for agent systems
+- Tracks input/output tokens, energy (J), and CO₂ (kg)
+- Supports nested agent calls via prompt tracking
+- Works with multi-agent architectures
 - Thread-safe and lightweight
 - Provides structured outputs via :class:`middleware.Datapoint`
 
@@ -93,54 +94,88 @@ Use Cases
 
 EnergyMiddleware is useful for:
 
-- 🔬 Research on **efficient AI systems**
-- 🌱 Measuring **environmental impact of LLMs**
-- 🤖 Adaptable **multi-agent systems** based on real-time estimated consumption
+- 🔬 Research on *efficient AI systems*
+- 🌱 Measuring *environmental impact of LLMs*
+- 🤖 Adaptive *multi-agent systems* based on real-time energy usage 
 - 🧪 Profiling experimental pipelines
 
 
 Contributing
 ------------
 
-Contributions are welcome! Feel free to:
+Contributions are welcome! You can help by:
 
-- Report issues via GitHub issues
-- Suggest features
-- Improve documentation
+- Reporting bugs via GitHub Issues
+- Suggesting new features
+- Improving documentation
 
-To build the package locally for testing, you can run:
+
+**Development Setup**:
+
+Install the package in editable mode:
 
 .. code-block:: bash
 
     pip install -e .
 
-This will install the package in editable mode, allowing you to test changes without reinstalling. 
 
-Before running some examples, make sure to install Ollama, its models (``qwen3.5:2b``, ``qwen3.5:4b``) and the dependencies for the tutorials first, which can be found in ``tutorials/requirements.txt``. Detailed installation instructions can be found in the tutorial pages.
-You can then run the multi-agent tutorial to see the middleware in action:
+**Running Tutorials**:
+
+Before running examples:
+
+- Install Ollama
+- Download models:
+  
+  - ``qwen3.5:2b``
+  - ``qwen3.5:4b``
+
+- Install dependencies:
+
+.. code-block:: bash
+
+    pip install -r tutorials/requirements.txt
+
+For detailed instructions regarding the installation process, please refer to the multi-agent tutorial documentation.
+
+**Example Scripts**:
+
+Run the multi-agent example:
 
 .. code-block:: bash
 
     python tutorials/sample_queries.py
 
-Or, if you want to see the streamlit dashboard, you can run:
+
+Or, launch the dashboard:
 
 .. code-block:: bash
 
     streamlit run tutorials/streamlit_visualisation.py
 
-Lastly, if you want to build the documentation locally, first install the dependencies for documentation:
+
+**Building the Documentation**:
+
+Install documentation dependencies:
 
 .. code-block:: bash
 
-    pip install sphinx sphinx-rtd-theme 
+    pip install sphinx sphinx-rtd-theme
 
-Then, you can run:
+Build the docs:
 
 .. code-block:: bash
 
     make html
 
-The built documentation will be available in the ``docs/build/html`` directory. You can open the ``index.html`` file in your browser to view it.
+Output:
 
-*Note*: All of the commands above assume you are in the root directory of the project.
+::
+
+    docs/build/html/index.html
+
+Open this file in your browser to view the docs.
+
+
+.. note::
+
+    All commands assume you are run from the project root.
