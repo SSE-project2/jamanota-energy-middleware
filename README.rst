@@ -52,7 +52,6 @@ Start tracking energy usage in your agent system in just a few lines:
     from langchain_ollama import ChatOllama
 
     from energy_middleware.middleware import EnergyMiddleware
-    from energy_middleware.reporting import present_results
 
     tracker = EnergyMiddleware()
 
@@ -73,10 +72,8 @@ Start tracking energy usage in your agent system in just a few lines:
         ]
     })
 
-    # Print results
-    present_results(tracker.get_report())
 
-The energy middleware tracker will be called after all model calls, including nested ones, and will log token usage, energy, and CO₂ for each call. The ``present_results`` function can be used to display the collected data in a readable format.
+The energy middleware tracker will be called after all model calls, including nested ones, and will log token usage, energy, and CO₂ for each call.
 
 
 Example Output
