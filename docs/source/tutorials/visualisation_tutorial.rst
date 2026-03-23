@@ -100,7 +100,7 @@ At any point, we can retrieve the tracked data:
 
     report = tracker.get_report()
 
-This returns a list of :class:`energy_middleware.middleware.Datapoint` objects, each representing
+This returns a list of :class:`energy_middleware.models.EnergyDataPoint` objects, each representing
 a single model call.
 
 

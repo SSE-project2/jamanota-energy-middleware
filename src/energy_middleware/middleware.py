@@ -4,54 +4,12 @@ import uuid
 from typing import Any, Literal
 
 from langchain.agents.middleware import AgentState, AgentMiddleware
-from langgraph.runtime import Runtime
-from pydantic import BaseModel
 from langgraph.config import get_config
+from langgraph.runtime import Runtime
 
-class Datapoint(BaseModel):
-    """
-    Measurement of estimated energy usage and environmental impact
-    for a single model call.
+from .energy_estimation_model import estimate_energy_and_emissions
+from .models import EnergyDataPoint, EnergyGroupSummary
 
-    Attributes:
-        input_token_count (int): Number of input tokens processed.
-        output_token_count (int): Number of output tokens generated.
-        estimated_energy_joule (float): Estimated energy usage in Joules.
-        estimated_co2e_kg (float): Estimated CO2 emissions in kilograms.
-        model_name (str): Name of the model used.
-        timestamp (datetime.datetime): Time when the datapoint was recorded.
-        message (str): Truncated model output message (first 100 chars).
-        prompt_id (str): Identifier linking agent calls stemming from the same original prompt.
-        agent_name (str): Name of the agent that generated the output.
-    """
-    input_token_count: int
-    output_token_count: int
-    estimated_energy_joule: float
-    estimated_co2e_kg: float
-    model_name: str
-    timestamp: datetime.datetime
-    message: str
-    prompt_id: str
-    agent_name: str
-
-
-class GroupSummary(BaseModel):
-    """
-    Aggregated summary of energy and token usage for a group of datapoints.
-    
-    Attributes:
-        name (str): Name of the group.
-        total_energy_joule (float): Total estimated energy usage in Joules
-        total_co2e_kg (float): Total estimated CO2 emissions in kilograms.
-        total_input_tokens (int): Total number of input tokens.
-        total_output_tokens (int): Total number of output tokens.
-    """
-    name: str
-    total_energy_joule: float
-    total_co2e_kg: float
-    total_input_tokens: int
-    total_output_tokens: int
-    datapoint_count: int
 
 class EnergyMiddleware(AgentMiddleware):
     """
@@ -64,9 +22,9 @@ class EnergyMiddleware(AgentMiddleware):
 
     def __init__(self):
         super().__init__()
-        self.datapoints: list[Datapoint] = []
+        self.datapoints: list[EnergyDataPoint] = []
         self._lock = threading.Lock()
-        self._prompt_id_stack: list[str] = [] # Could also be replaced by a field and a counter.
+        self._prompt_id_stack: list[str] = []
         self._prompt_order: list[str] = []
 
     @property
@@ -80,7 +38,7 @@ class EnergyMiddleware(AgentMiddleware):
         with self._lock:
             return self._prompt_id_stack[-1] if self._prompt_id_stack else None
 
-    def _filter_datapoints(self, last_n_prompts, last_n_hours):
+    def _filter_datapoints(self, last_n_prompts: int | None, last_n_hours: int | None) -> list[EnergyDataPoint]:
         """
         Filter datapoints based on recent prompts or time.
         
@@ -89,7 +47,7 @@ class EnergyMiddleware(AgentMiddleware):
             last_n_hours (float | None): If set, only include datapoints from the last N hours.
 
         Returns:
-            list[Datapoint]: A filtered list of datapoints based on the provided criteria.
+            list[EnergyDataPoint]: A filtered list of datapoints based on the provided criteria.
         """
         with self._lock:
             points = self.datapoints.copy()
@@ -102,22 +60,22 @@ class EnergyMiddleware(AgentMiddleware):
             points = [dp for dp in points if dp.timestamp >= cutoff]
         return points
 
-    def _group_datapoints(self, points: list[Datapoint], key: str) -> list[GroupSummary]:
+    def _group_datapoints(self, points: list[EnergyDataPoint], key: str) -> list[EnergyGroupSummary]:
         """
         Group datapoints by a specified key (model_name or agent_name) and aggregates energy/token usage.
         
         Args:
-            points (list[Datapoint]): List of datapoints to group.
+            points (list[EnergyDataPoint]): List of datapoints to group.
             key (str): Attribute to group by ("model_name" or "agent_name").
 
         Returns:
-            list[GroupSummary]: A list of aggregated summaries for each group.
+            list[EnergyGroupSummary]: A list of aggregated summaries for each group.
         """
-        buckets: dict[str, GroupSummary] = {}
+        buckets: dict[str, EnergyGroupSummary] = {}
         for dp in points:
             name = getattr(dp, key)
             if name not in buckets:
-                buckets[name] = GroupSummary(
+                buckets[name] = EnergyGroupSummary(
                     name=name,
                     total_energy_joule=0.0,
                     total_co2e_kg=0.0,
@@ -207,7 +165,7 @@ class EnergyMiddleware(AgentMiddleware):
 
         prompt_id = self._current_prompt_id
 
-        output_datapoint = Datapoint(
+        output_datapoint = EnergyDataPoint(
             input_token_count=input_token_count,
             output_token_count=output_token_count,
             estimated_energy_joule=energy,
@@ -225,12 +183,12 @@ class EnergyMiddleware(AgentMiddleware):
 
     # ── Raw ────────────────────────────────────────────────────────────
 
-    def get_report(self) -> list[Datapoint]:
+    def get_report(self) -> list[EnergyDataPoint]:
         """
         Retrieve a copy of all collected datapoints.
 
         Returns:
-            list[Datapoint]: A copy of the recorded datapoints.
+            list[EnergyDataPoint]: A copy of the recorded datapoints.
         """
         with self._lock:
             return self.datapoints.copy()
@@ -314,7 +272,7 @@ class EnergyMiddleware(AgentMiddleware):
         group_by: Literal["model_name", "agent_name"],
         last_n_prompts: int | None = None,
         last_n_hours: float | None = None,
-        ) -> list[GroupSummary]:
+        ) -> list[EnergyGroupSummary]:
         """
         Returns aggregated energy/token summaries grouped by model or agent.
 
@@ -325,62 +283,4 @@ class EnergyMiddleware(AgentMiddleware):
         """
         points = self._filter_datapoints(last_n_prompts, last_n_hours)
         return self._group_datapoints(points, group_by)
-
-def estimate_energy_and_emissions(input_tokens: int, output_tokens: int, model: str) -> tuple[float, float]:
-    """
-    Estimate energy consumption and CO2 emissions for a model inference.
-
-    The estimation is based on:
-    - FLOPs per token approximation for transformer models
-    - Assumed hardware efficiency (FLOPs per Joule)
-    - Global average carbon intensity
-
-    Args:
-        input_tokens (int): Number of input tokens.
-        output_tokens (int): Number of output tokens.
-        model (str): Model identifier used to determine parameter count.
-
-    Returns:
-        tuple[float, float]:
-            - Total energy consumption in Joules
-            - Estimated CO2 emissions in kilograms
-    """
-    # Carbon Intensity
-    # Global average carbon intensity: 0.45 kg CO2 / kWh
-    # Conversion: 1 kWh = 3,600,000 Joules
-    # 0.45 / 3,600,000 ≈ 1.25e-7 kg CO2 per Joule
-    co2e_per_joule = 1.25e-7  # kg CO2 per Joule
-
-    # Hardware Efficiency Assumption (Consumer GPU Baseline) NVIDIA RTX 4070 specifications obtained online
-    # FP16 (half precision) throughput: 29.15 TFLOPs
-    # TDP (Thermal Design Power): 200 W
-    #
-    # FLOPs per Joule = FLOPs per second / Watts = (29.15e12 FLOPs/s) / 200 W
-    # ≈ 1.46e11 FLOPs per Joule (theoretical peak)
-    FLOPS_PER_JOULE = 1.46e11  # RTX 4070 FP16 peak efficiency
-
-    # Transformer Inference Compute Approximation used in transformer literature:
-    # FLOPs per token ≈ 2 × number_of_parameters (Forward pass only; training typically ≈ 6P)
-    # Assumes dense models
-    # More models could be added later, the number of parameters is usually in the name.
-    MODEL_PARAMETERS = {
-        "qwen3.5:4b": 4_000_000_000,
-        "qwen3.5:2b": 2_000_000_000,
-    }
-
-    # I have sources for the numbers above
-
-    params = MODEL_PARAMETERS.get(model, 0)
-    total_tokens = input_tokens + output_tokens
-
-    # Total FLOPs for inference
-    total_flops = 2 * params * total_tokens
-
-    # Convert compute to energy
-    total_energy = total_flops / FLOPS_PER_JOULE  # Joules
-
-    # Convert energy to CO2
-    co2e = total_energy * co2e_per_joule  # kg CO2
-
-    return total_energy, co2e
 

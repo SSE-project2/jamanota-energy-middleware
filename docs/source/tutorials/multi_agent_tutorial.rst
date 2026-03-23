@@ -37,7 +37,7 @@ Initialize the tracker:
 
 .. code-block:: python
 
-    from energy_middleware.middleware import EnergyMiddleware
+    from energy_middleware import EnergyMiddleware
 
     tracker = EnergyMiddleware()
 
@@ -235,9 +235,9 @@ Before we run some test queries, let's define a helper function to display the e
 
     from collections import defaultdict
 
-    from energy_middleware.middleware import Datapoint
+    from energy_middleware import EnergyDataPoint
 
-    def present_results(report: list[Datapoint]) -> None:
+    def present_results(report: list[EnergyDataPoint]) -> None:
         """
         Print a human-readable summary of energy and CO2 usage for a list of datapoints.
 
@@ -245,17 +245,17 @@ Before we run some test queries, let's define a helper function to display the e
         are shown together.
 
         Attributes:
-            report (list[Datapoint]): A list of `Datapoint` instances collected
+            report (list[EnergyDataPoint]): A list of `EnergyDataPoint` instances collected
                 from the `EnergyMiddleware`.
         """
-        grouped: dict[str, list[Datapoint]] = defaultdict(list[Datapoint])
+        grouped: dict[str, list[EnergyDataPoint]] = defaultdict(list[EnergyDataPoint])
         for dp in report:
             grouped[dp.prompt_id].append(dp)
 
         for prompt_id, points in grouped.items():
             print(f"\nPrompt [{prompt_id}]:")
             for dp in points:
-                print(f"  [{dp.model_name}] {dp.message}")  # If we have multiple models for the sub-prompts, that will change here
+                print(f"  [{dp.model_name}] {dp.message}")
                 print(f'  Energy: {dp.estimated_energy_joule} J')
                 print(f'  CO2: {dp.estimated_co2e_kg} gCO2e')
                 print(f'  Input: {dp.input_token_count} tokens')
@@ -269,16 +269,19 @@ Example: execute a Python program and track energy usage:
 
 .. code-block:: python
 
-    response = main_agent.invoke({
+    main_agent.invoke({
         "messages": [
-            {"role": "user", "content": """What does this Python program output? 
-            ```python
-            def mystery(n):
+            {"role": "user", "content": """
+            What does this Python program output?
+             ```python
+             def mystery(n):
                 if n <= 1:
                     return n
                 return mystery(n-1) + mystery(n-2)
 
-            print(mystery(10))"""}
+            print(mystery(10))```
+
+            """}
         ]
     })
 
@@ -290,10 +293,11 @@ Example: solve a math problem:
 
 .. code-block:: python
 
-    response = main_agent.invoke({
+    main_agent.invoke({
         "messages": [
-            {"role": "user", "content": """What is the solution for the following mathematical problem? 
-            Calculate the exact result of: (452 * 18.5) / 3.2 + 5**3"""}
+            {"role": "user", "content": """
+             Calculate the exact result of: (452 * 18.5) / 3.2 + 5**3
+             """}
         ]
     })
 
