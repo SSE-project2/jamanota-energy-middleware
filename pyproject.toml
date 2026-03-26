@@ -19,6 +19,7 @@ license-files = ["LICEN[CS]E*"]
 
 [project.urls]
 Homepage = "https://github.com/SSE-project2/langchain-energy-middleware"
+Documentation = "https://jamanota.readthedocs.io/en/latest/"
 
 [tool.setuptools.packages.find]
 where = ["src"]
