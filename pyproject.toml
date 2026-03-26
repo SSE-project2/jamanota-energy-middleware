@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jamanota"
-version = "0.1.0"
+version = "0.1.1"
 description = "Energy and CO2 tracking middleware for LangChain LLM agents"
 readme = "README.rst"
 authors = [{name = "Samuel van den Houten, Jan Kuhta, Andrea Vezzuto, Aadesh Ramai, Rodrigo Montero González"}]
